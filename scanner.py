@@ -43,11 +43,36 @@ p = Peripheral("58:8e:81:a5:4a:6a")
 services=p.getServices()
 for service in services:
     s = p.getServiceByUUID(service.uuid)
-    if s.uuid!='00001815-0000-1000-8000-00805f9b34fb':
-        continue
-    char_button,char_led=s.getCharacteristics('2a56')
-    led=struct.unpack('B', char_led.read())[0]
-    char_led.write(struct.pack('B',1-led),withResponse=True)
+    #print("X",s,s.uuid,s.uuid.getCommonName())
+    if False and s.uuid.getCommonName()=='Generic Access':
+        for c in s.getCharacteristics():
+            if c.uuid.getCommonName()=='Device Name':
+                print(c.read())
+                device_name=c.read().decode().rstrip('\x00')
+                for x in device_name:
+                    print("|%s|" % x,ord(x))
+                print(device_name,"|%s|" % device_name,len(device_name),'thundipi'==device_name)
+                if device_name=='thundipi':
+                    print("FOUND A THUNDI PI")
+    elif s.uuid.getCommonName()=='1815':
+        devs=s.getCharacteristics()
+        for dev in devs:
+            print(dev.propertiesToString(),dev.supportsRead(),dev.getHandle())
+            print(dev.read())
+        dev_values=[ struct.unpack('B', dev.read())[0] for dev in devs ] 
+        for dev in devs:
+            print(dev.uuid,dev.propertiesToString(),dev.getHandle())
+        for idx in range(4):
+            #devs[idx].write(struct.pack('B',1-devs_values[idx]),withResponse=True)
+            devs[idx].write(struct.pack('B',1-dev_values[idx]),withResponse=True)
+            #devs[idx].write(struct.pack('B',1-devs_values[idx]),withResponse=True)
+        #print(devs_values)
+
+    #if s.uuid!='00001815-0000-1000-8000-00805f9b34fb':
+    #    continue
+    #char_button,char_led=s.getCharacteristics('2a56')
+    #led=struct.unpack('B', char_led.read())[0]
+    #char_led.write(struct.pack('B',1-led),withResponse=True)
 exit()
 while True:
     #print(scan())
