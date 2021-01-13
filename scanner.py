@@ -37,9 +37,19 @@ def scan():
             whos_here.append( (known_bles[key], -1000))
     return whos_here,addrs_found
 
+while False:
+    #print(scan())
+    scanner = Scanner().withDelegate(ScanDelegate())
+    devices = scanner.scan(10.0)
 
+    for dev in devices:
+        print("Device %s (%s), RSSI=%d dB" % (dev.addr, dev.addrType, dev.rssi),dev)
+        for (adtype, desc, value) in dev.getScanData():
+            print("  %s = %s" % (desc, value))
+    exit()
 #this toggles the LED on the thunderboard
-p = Peripheral("58:8e:81:a5:4a:6a")
+#p = Peripheral("58:8e:81:a5:4a:6a")
+p = Peripheral("58:8e:81:a5:47:b4")
 services=p.getServices()
 for service in services:
     s = p.getServiceByUUID(service.uuid)
@@ -74,13 +84,3 @@ for service in services:
     #led=struct.unpack('B', char_led.read())[0]
     #char_led.write(struct.pack('B',1-led),withResponse=True)
 exit()
-while True:
-    #print(scan())
-    scanner = Scanner().withDelegate(ScanDelegate())
-    devices = scanner.scan(10.0)
-
-    for dev in devices:
-        print("Device %s (%s), RSSI=%d dB" % (dev.addr, dev.addrType, dev.rssi),dev)
-        for (adtype, desc, value) in dev.getScanData():
-            print("  %s = %s" % (desc, value))
-    exit()
