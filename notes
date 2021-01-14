@@ -1,2 +1,13 @@
 $ sudo apt-get install python3-pip libglib2.0-dev
-$ sudo pip3 install bluepy
+$ sudo pip3 install bluep(Pdb) mng_objs['/org/bluez/hci0/dev_58_8E_81_A5_4A_6A']['org.bluez.Device1']['Address']
+'58:8E:81:A5:4A:6A'
+(Pdb) mng_objs['/org/bluez/hci0/dev_58_8E_81_A5_4A_6A']['org.bluez.Device1']['Address']
+'58:8E:81:A5:4A:6A'
+(Pdb) bus
+<pydbus.bus.Bus object at 0xb66deab0>
+(Pdb) bus.get_object("org.bluez",'/org/bluez/hci0/dev_58_8E_81_A5_4A_6A')
+*** AttributeError: 'Bus' object has no attribute 'get_object'
+(Pdb) bus.get("org.bluez",'/org/bluez/hci0/dev_58_8E_81_A5_4A_6A')
+<DBUS.<CompositeObject>(org.bluez.Device1+org.freedesktop.DBus.Introspectable+org.freedesktop.DBus.Properties) object at 0xb4a57dd0>
+(Pdb) bus.get("org.bluez",'/org/bluez/hci0/dev_58_8E_81_A5_4A_6A').Pair
+<bound method org.bluez.Device1.Pair of <DBUS.<CompositeObject>(org.bluez.Device1+org.freedesktop.DBus.Introspectable+org.freedesktop.DBus.Properties) object at 0xb4a6d790>>y

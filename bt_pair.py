@@ -9,17 +9,17 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 try:
-  from gi.repository import GObject, GLib
+  from gi.repository import GLib
 except ImportError:
   import gobject as GObject
 import bluezutils
 
 BUS_NAME = 'org.bluez'
 AGENT_INTERFACE = 'org.bluez.Agent1'
-AGENT_PATH = "/test/agent"
 
 bus = None
 device_obj = None
+adapter = None
 pairing_dev_path = None
 compact = True
 devices= {}
@@ -71,11 +71,9 @@ def skip_dev(old_dev, new_dev):
     return False
 
 def interfaces_added(path, interfaces):
-    if 'org.bluez.Device1' not in interfaces:
+    if 'org.bluez.Device1' not in interfaces or not interfaces['org.bluez.Device1']:
         return
     properties = interfaces["org.bluez.Device1"]
-    if not properties:
-        return
 
     if path in devices:
         dev = devices[path]
@@ -95,6 +93,9 @@ def interfaces_added(path, interfaces):
         print_compact(address, devices[path])
     else:
         print_normal(address, devices[path])
+    if address==args.target:
+        mainloop.quit()
+
 
 def properties_changed(interface, changed, invalidated, path):
     if interface != "org.bluez.Device1":
@@ -122,6 +123,11 @@ def properties_changed(interface, changed, invalidated, path):
 def property_changed(name, value):
     if (name == "Discovering" and not value):
         mainloop.quit()
+
+def cancel_pairing():
+    """Handler for end of discovery"""
+    mainloop.quit()
+    #adapter.CancelDeviceCreation(pairing_dev_path)
 
 def end_discovery():
     """Handler for end of discovery"""
@@ -247,11 +253,10 @@ def load_devices():
     for path, interfaces in objects.items():
         if "org.bluez.Device1" in interfaces:
             devices[path] = interfaces["org.bluez.Device1"]
-    print("loaded",len(devices))
+    print("Loaded",len(devices),"devices")
 
 def scan(scan_time):
     #lets scan first
-    adapter = bluezutils.find_adapter()
     bus.add_signal_receiver(interfaces_added,
             dbus_interface = "org.freedesktop.DBus.ObjectManager",
             signal_name = "InterfacesAdded")
@@ -266,7 +271,6 @@ def scan(scan_time):
                     dbus_interface = "org.bluez.Adapter1",
                     signal_name = "PropertyChanged")
 
-
     adapter.StartDiscovery()
     GLib.timeout_add_seconds(scan_time, end_discovery)
     mainloop.run()
@@ -275,66 +279,47 @@ if __name__ == '__main__':
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
     bus = dbus.SystemBus()
-    mainloop = GObject.MainLoop()
+    mainloop = GLib.MainLoop()
 
     capability = "KeyboardDisplay"
 
-    '''parser = OptionParser()
-    parser.add_option("-i", "--adapter", action="store",
-                    type="string",
-                    dest="adapter_pattern",
-                    default=None)
-    parser.add_option("-c", "--capability", action="store",
-                    type="string", dest="capability")
-    parser.add_option("-t", "--timeout", action="store",
-                    type="int", dest="timeout",
-                    default=60000)
-    (options, args) = parser.parse_args()
-    if options.capability:
-        capability  = options.capability'''
     parser = argparse.ArgumentParser(description='Bluetooth pair/remove/scan')
     parser.add_argument('--action',type=str,required=True,help='actions')
     parser.add_argument('--target',type=str,required=False,help='target address')
     parser.add_argument('--scantime',type=int,required=False,default=5,help='target address')
     args = parser.parse_args()
 
-    #device = bluezutils.find_device(options.target)
+    adapter = bluezutils.find_adapter()
     load_devices()
     if args.action=='scan' or find_device(args.target)==None:
-        print("scanning")
+        print("Scanning (%d s)" % args.scantime)
         scan(args.scantime)
+        print("Done scanning...")
+    if args.action=='scan':
+        sys.exit(1)
+   
+    device_path=find_device(args.target)
+    if device_path==None:
+        print("Cannot find the target device %s" % args.target)
+        sys.exit(1)
 
-    #then pair
-
-    path = "/test/agent"
-    agent = Agent(bus, path)
+    agent_path = "/test/agent"
+    agent = Agent(bus, agent_path)
     agent.set_exit_on_release(False)
 
     manager = dbus.Interface(bus.get_object('org.bluez','/org/bluez'), "org.bluez.AgentManager1")
-    manager.RegisterAgent(path, capability)
+    manager.RegisterAgent(agent_path, capability)
 
-    print("Agent registered")
+    if args.action=='pair':
+        if bool(devices[device_path]['Paired']):# and args.action=='pair':
+            print("Cannot pair, already paired!")
+        else:
+            pairing_dev_path=device_path
+            device=dbus.Interface(bus.get_object('org.bluez',device_path),'org.bluez.Device1')
+            device.Pair(reply_handler=pair_reply, error_handler=pair_error,
+                                    timeout=60000)
+            GLib.timeout_add_seconds(5, cancel_pairing)
+            mainloop.run()
+    elif args.action=='remove':
+        adapter.RemoveDevice(device_path)
 
-    print("looking for device",args.target=="58:8E:81:A5:4A:6A")
-    #device = bluezutils.find_device(options.target)
-    for path in devices:
-        if str(devices[path]['Address'])==args.target:
-            if args.action=='pair':
-                print("pair")
-                if bool(devices[path]['Paired']):# and args.action=='pair':
-                    print("Cannot pair, already paired!")
-                else:
-                    pairing_dev_path=path
-                    device=dbus.Interface(bus.get_object('org.bluez',path),'org.bluez.Device1')
-                    device.Pair(reply_handler=pair_reply, error_handler=pair_error,
-                                            timeout=60000)
-            elif args.action=='remove':
-                print("removed")
-                adapter.RemoveDevice(path)
-            else:
-                print("broke")
-
-    mainloop.run()
-
-    #adapter.UnregisterAgent(path)
-    #print("Agent unregistered")

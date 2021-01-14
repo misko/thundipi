@@ -5,23 +5,6 @@ from gi.repository import GLib
 
 discovery_time = 6
 log_file = '/home/pi/device.log'
-AGENT_INTERFACE = 'org.bluez.Agent1'
-AGENT_PATH = "/test/agent"
-
-
-def pair_reply():
-    print("Device paired")
-    set_trusted(dev_path)
-    dev_connect(dev_path)
-    mainloop.quit()
-
-def pair_error(error):
-    err_name = error.get_dbus_name()
-    if err_name == "org.freedesktop.DBus.Error.NoReply" and device_obj:
-        print("Timed out. Cancelling pairing")
-        device_obj.CancelPairing()
-    else:
-        print("Creating device failed: %s" % (error))
 
 # Create an empty log file
 def write_to_log(address, rssi):
