@@ -232,14 +232,50 @@ def pair_error(error):
         device_obj.CancelPairing()
     else:
         print("Creating device failed: %s" % (error))
-
-
     mainloop.quit()
+
+def find_device(address):
+    for path in devices:
+        if str(devices[path]['Address'])==address:
+            return path
+    return None
+
+def load_devices():
+    om = dbus.Interface(bus.get_object("org.bluez", "/"),
+                "org.freedesktop.DBus.ObjectManager")
+    objects = om.GetManagedObjects()
+    for path, interfaces in objects.items():
+        if "org.bluez.Device1" in interfaces:
+            devices[path] = interfaces["org.bluez.Device1"]
+    print("loaded",len(devices))
+
+def scan(scan_time):
+    #lets scan first
+    adapter = bluezutils.find_adapter()
+    bus.add_signal_receiver(interfaces_added,
+            dbus_interface = "org.freedesktop.DBus.ObjectManager",
+            signal_name = "InterfacesAdded")
+
+    bus.add_signal_receiver(properties_changed,
+            dbus_interface = "org.freedesktop.DBus.Properties",
+            signal_name = "PropertiesChanged",
+            arg0 = "org.bluez.Device1",
+            path_keyword = "path")
+
+    bus.add_signal_receiver(property_changed,
+                    dbus_interface = "org.bluez.Adapter1",
+                    signal_name = "PropertyChanged")
+
+
+    adapter.StartDiscovery()
+    GLib.timeout_add_seconds(scan_time, end_discovery)
+    mainloop.run()
 
 if __name__ == '__main__':
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
     bus = dbus.SystemBus()
+    mainloop = GObject.MainLoop()
 
     capability = "KeyboardDisplay"
 
@@ -259,35 +295,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Bluetooth pair/remove/scan')
     parser.add_argument('--action',type=str,required=True,help='actions')
     parser.add_argument('--target',type=str,required=False,help='target address')
+    parser.add_argument('--scantime',type=int,required=False,default=5,help='target address')
     args = parser.parse_args()
 
-    #lets scan first
-    adapter = bluezutils.find_adapter()
-    bus.add_signal_receiver(interfaces_added,
-            dbus_interface = "org.freedesktop.DBus.ObjectManager",
-            signal_name = "InterfacesAdded")
+    #device = bluezutils.find_device(options.target)
+    load_devices()
+    if args.action=='scan' or find_device(args.target)==None:
+        print("scanning")
+        scan(args.scantime)
 
-    bus.add_signal_receiver(properties_changed,
-            dbus_interface = "org.freedesktop.DBus.Properties",
-            signal_name = "PropertiesChanged",
-            arg0 = "org.bluez.Device1",
-            path_keyword = "path")
-
-    bus.add_signal_receiver(property_changed,
-                    dbus_interface = "org.bluez.Adapter1",
-                    signal_name = "PropertyChanged")
-
-    om = dbus.Interface(bus.get_object("org.bluez", "/"),
-                "org.freedesktop.DBus.ObjectManager")
-    objects = om.GetManagedObjects()
-    for path, interfaces in objects.items():
-        if "org.bluez.Device1" in interfaces:
-            devices[path] = interfaces["org.bluez.Device1"]
-
-    mainloop = GObject.MainLoop()
-    adapter.StartDiscovery()
-    GLib.timeout_add_seconds(5, end_discovery)
-    mainloop.run()
     #then pair
 
     path = "/test/agent"
