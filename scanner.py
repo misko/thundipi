@@ -48,8 +48,8 @@ while False:
             print("  %s = %s" % (desc, value))
     exit()
 #this toggles the LED on the thunderboard
-#p = Peripheral("58:8e:81:a5:4a:6a")
-p = Peripheral("58:8e:81:a5:47:b4")
+p = Peripheral("58:8e:81:a5:4a:6a")
+#p = Peripheral("58:8e:81:a5:47:b4")
 services=p.getServices()
 for service in services:
     s = p.getServiceByUUID(service.uuid)
